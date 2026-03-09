@@ -55,6 +55,7 @@
     .line.player { color: #80cbc4; }
     .line.examine { color: #ce93d8; }
     .line.separator { color: #2e7d32; margin: 8px 0; }
+    .line.inventory { color: #80cbc4; }
 
     #input-row {
       display: flex;
@@ -116,7 +117,7 @@
     <button id="btn">Enter</button>
   </div>
 
-  <div id="hint">try: look &nbsp;|&nbsp; go north &nbsp;|&nbsp; examine fern &nbsp;|&nbsp; examine tree</div>
+  <div id="hint">try: look &nbsp;|&nbsp; go north &nbsp;|&nbsp; examine fern &nbsp;|&nbsp; inventory</div>
 
   <script>
     // ─── WORLD DATA ───────────────────────────────────────────────────────────
@@ -132,6 +133,7 @@
           fern: {
             name: "sword fern",
             text: "Thick clusters of sword ferns — Polystichum munitum. You know this one well. Tough, resilient, thrives in shade. Back home you used them for ground cover. Here, you wonder what else they might be good for.",
+            collectible: true,
           },
           tree: {
             name: "Douglas fir",
@@ -154,6 +156,7 @@
           fern: {
             name: "sword ferns",
             text: "Even more impressive here than in the clearing. Some of these fronds are nearly four feet long. You notice the fiddleheads — the young coiled shoots just unfurling at the base. Edible if prepared right. You file that away.",
+            collectible: true,
           },
           log: {
             name: "cedar log",
@@ -202,6 +205,7 @@
           salal: {
             name: "salal",
             text: "Gaultheria shallon. Hardy, spreading, salt tolerant. The berries are edible — dark purple, mealy, a little sweet. Indigenous people used them for food and medicine for thousands of years. You pick one and chew it. It tastes like the forest smells.",
+            collectible: true,
           },
           sky: {
             name: "sky",
@@ -216,6 +220,7 @@
     const state = {
       currentRoom: "clearing",
       visited: new Set(),
+      inventory: [],
       turn: 0,
     };
 
@@ -282,14 +287,33 @@
       // EXAMINE
       if (input.startsWith("examine ") || input.startsWith("look at ") || input.startsWith("x ")) {
         const target = input.replace(/^(examine |look at |x )/, "").trim();
-        // try exact match, then partial
         const match = Object.keys(room.items).find(
           (k) => k === target || room.items[k].name.toLowerCase().includes(target)
         );
         if (match) {
-          print(room.items[match].text, "examine");
+          const item = room.items[match];
+          print(item.text, "examine");
+          if (item.collectible) {
+            const alreadyHave = state.inventory.some((i) => i.name === item.name);
+            if (!alreadyHave) {
+              state.inventory.push({ name: item.name, key: match });
+              print("[SYSTEM: " + item.name + " added to inventory.]", "system");
+            }
+          }
         } else {
           print("You don't see anything like that here.", "error");
+        }
+        return;
+      }
+
+      // INVENTORY
+      if (input === "inventory" || input === "i" || input === "inv") {
+        separator();
+        print("INVENTORY", "location");
+        if (state.inventory.length === 0) {
+          print("  Your hands are empty.", "inventory");
+        } else {
+          state.inventory.forEach((item) => print("  — " + item.name, "inventory"));
         }
         return;
       }
@@ -301,6 +325,7 @@
         print("  look              — describe your surroundings");
         print("  go [direction]    — move (north, south, east, west)");
         print("  examine [thing]   — look closely at something");
+        print("  inventory         — check what you're carrying");
         print("  help              — show this list");
         return;
       }
