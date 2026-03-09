@@ -134,6 +134,7 @@
             name: "sword fern",
             text: "Thick clusters of sword ferns — Polystichum munitum. You know this one well. Tough, resilient, thrives in shade. Back home you used them for ground cover. Here, you wonder what else they might be good for.",
             collectible: true,
+            plantText: "You tuck the fern into the soft earth near the Douglas fir, pressing the soil gently around its roots. It looks right there. Like it knows it's home.",
           },
           tree: {
             name: "Douglas fir",
@@ -142,6 +143,16 @@
           self: {
             name: "yourself",
             text: "Dirt under your fingernails. A few scratches you don't remember getting. Your gardening gloves are still on your hands — rough canvas, worn soft at the knuckles. Your trowel is at your belt. At least you have that.",
+          },
+          garden: {
+            name: "garden plot",
+            text: () => {
+              if (state.garden.length === 0) {
+                return "A patch of open ground near the base of the Douglas fir. The soil here is dark and loose, sheltered by the roots. Your hands itch to do something with it. You could plant here.";
+              }
+              const list = state.garden.map((p) => "  — " + p.name).join("\n");
+              return "Your garden plot, taking shape beneath the Douglas fir. So far you've established:\n" + list + "\n\nSmall. But it's yours.";
+            },
           },
         },
       },
@@ -157,6 +168,7 @@
             name: "sword ferns",
             text: "Even more impressive here than in the clearing. Some of these fronds are nearly four feet long. You notice the fiddleheads — the young coiled shoots just unfurling at the base. Edible if prepared right. You file that away.",
             collectible: true,
+            plantText: "You tuck the fern into the soft earth near the Douglas fir, pressing the soil gently around its roots. It looks right there. Like it knows it's home.",
           },
           log: {
             name: "cedar log",
@@ -206,6 +218,7 @@
             name: "salal",
             text: "Gaultheria shallon. Hardy, spreading, salt tolerant. The berries are edible — dark purple, mealy, a little sweet. Indigenous people used them for food and medicine for thousands of years. You pick one and chew it. It tastes like the forest smells.",
             collectible: true,
+            plantText: "You nestle the salal cutting into a sunny patch at the garden's edge. It'll spread on its own once it takes hold — salal always does. You just have to give it a chance.",
           },
           sky: {
             name: "sky",
@@ -221,6 +234,7 @@
       currentRoom: "clearing",
       visited: new Set(),
       inventory: [],
+      garden: [],
       turn: 0,
     };
 
@@ -292,7 +306,8 @@
         );
         if (match) {
           const item = room.items[match];
-          print(item.text, "examine");
+          const text = typeof item.text === "function" ? item.text() : item.text;
+          print(text, "examine");
           if (item.collectible) {
             const alreadyHave = state.inventory.some((i) => i.name === item.name);
             if (!alreadyHave) {
@@ -318,6 +333,41 @@
         return;
       }
 
+      // PLANT
+      if (input.startsWith("plant ")) {
+        if (state.currentRoom !== "clearing") {
+          print("You'd need to be back at the clearing to plant anything. That patch near the Douglas fir feels like the right spot.", "error");
+          return;
+        }
+        const target = input.slice(6).trim();
+        const match = state.inventory.find(
+          (i) => i.name.toLowerCase().includes(target) || i.key === target
+        );
+        if (!match) {
+          print("You're not carrying anything like that.", "error");
+          return;
+        }
+        const alreadyPlanted = state.garden.some((p) => p.name === match.name);
+        if (alreadyPlanted) {
+          print("You've already planted that here. Give it time to grow.", "error");
+          return;
+        }
+        // find plantText from any room's items
+        let plantText = null;
+        for (const room of Object.values(rooms)) {
+          for (const item of Object.values(room.items)) {
+            if (item.name === match.name && item.plantText) {
+              plantText = item.plantText;
+            }
+          }
+        }
+        state.inventory = state.inventory.filter((i) => i.name !== match.name);
+        state.garden.push({ name: match.name });
+        print(plantText || "You carefully plant it in the dark soil. It settles in as if it was always meant to be here.", "examine");
+        print("[SYSTEM: " + match.name + " established in garden. Plot size: " + state.garden.length + ".]", "system");
+        return;
+      }
+
       // HELP
       if (input === "help" || input === "?") {
         separator();
@@ -326,6 +376,8 @@
         print("  go [direction]    — move (north, south, east, west)");
         print("  examine [thing]   — look closely at something");
         print("  inventory         — check what you're carrying");
+        print("  plant [item]      — plant something in your garden (clearing only)");
+        print("  examine garden    — see what you've planted");
         print("  help              — show this list");
         return;
       }
