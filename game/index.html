@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Under the Canopy</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0d1a0f;
+      color: #c8e6c9;
+      font-family: 'Courier New', monospace;
+      font-size: 15px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+
+    #title {
+      color: #81c784;
+      font-size: 22px;
+      letter-spacing: 4px;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+    }
+
+    #subtitle {
+      color: #4caf50;
+      font-size: 11px;
+      letter-spacing: 2px;
+      margin-bottom: 30px;
+    }
+
+    #output {
+      width: 100%;
+      max-width: 720px;
+      background: #0a130b;
+      border: 1px solid #2e7d32;
+      border-radius: 4px;
+      padding: 24px;
+      min-height: 400px;
+      max-height: 60vh;
+      overflow-y: auto;
+      margin-bottom: 16px;
+      line-height: 1.8;
+    }
+
+    .line { margin-bottom: 4px; }
+    .line.location { color: #a5d6a7; font-weight: bold; margin-top: 12px; }
+    .line.description { color: #c8e6c9; }
+    .line.system { color: #ffeb3b; font-style: italic; }
+    .line.error { color: #ef9a9a; }
+    .line.player { color: #80cbc4; }
+    .line.examine { color: #ce93d8; }
+    .line.separator { color: #2e7d32; margin: 8px 0; }
+
+    #input-row {
+      display: flex;
+      width: 100%;
+      max-width: 720px;
+      gap: 8px;
+    }
+
+    #prompt-label {
+      color: #4caf50;
+      line-height: 38px;
+      font-size: 16px;
+    }
+
+    #input {
+      flex: 1;
+      background: #0a130b;
+      border: 1px solid #2e7d32;
+      border-radius: 4px;
+      color: #c8e6c9;
+      font-family: 'Courier New', monospace;
+      font-size: 15px;
+      padding: 8px 12px;
+      outline: none;
+    }
+
+    #input:focus { border-color: #81c784; }
+
+    #btn {
+      background: #1b5e20;
+      border: 1px solid #2e7d32;
+      border-radius: 4px;
+      color: #c8e6c9;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      padding: 8px 16px;
+      cursor: pointer;
+    }
+
+    #btn:hover { background: #2e7d32; }
+
+    #hint {
+      color: #388e3c;
+      font-size: 11px;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="title">Under the Canopy</div>
+  <div id="subtitle">a gardener's tale</div>
+
+  <div id="output"></div>
+
+  <div id="input-row">
+    <span id="prompt-label">&gt;</span>
+    <input id="input" type="text" placeholder="what do you do?" autofocus autocomplete="off" />
+    <button id="btn">Enter</button>
+  </div>
+
+  <div id="hint">try: look &nbsp;|&nbsp; go north &nbsp;|&nbsp; examine fern &nbsp;|&nbsp; examine tree</div>
+
+  <script>
+    // ─── WORLD DATA ───────────────────────────────────────────────────────────
+
+    const rooms = {
+      clearing: {
+        id: "clearing",
+        name: "The Clearing",
+        description:
+          "You are standing in a small clearing. Shafts of pale morning light filter through a cathedral ceiling of Douglas fir branches overhead. The tree behind you is enormous — its bark deeply furrowed, its trunk wider than your arms can reach. Sword ferns carpet the ground in every direction, their fronds still wet with dew. The forest breathes around you.",
+        exits: { north: "fern_grove", east: "stream", south: "ridge" },
+        items: {
+          fern: {
+            name: "sword fern",
+            text: "Thick clusters of sword ferns — Polystichum munitum. You know this one well. Tough, resilient, thrives in shade. Back home you used them for ground cover. Here, you wonder what else they might be good for.",
+          },
+          tree: {
+            name: "Douglas fir",
+            text: "The tree you woke beneath. A Douglas fir, ancient and unhurried. Its resinous bark smells sharp and clean. You reach out and press your palm against it. It feels solid. Real. Whatever happened to you, this tree has been standing here for centuries and it isn't worried.",
+          },
+          self: {
+            name: "yourself",
+            text: "Dirt under your fingernails. A few scratches you don't remember getting. Your gardening gloves are still on your hands — rough canvas, worn soft at the knuckles. Your trowel is at your belt. At least you have that.",
+          },
+        },
+      },
+
+      fern_grove: {
+        id: "fern_grove",
+        name: "The Fern Grove",
+        description:
+          "The ferns grow dense and tall here, taller than your waist, crowding out the light. The ground is soft underfoot — a deep mat of moss and decomposing needles built up over decades. A massive cedar log lies half-buried in the undergrowth, slowly returning to the earth. Everything here smells dark and alive.",
+        exits: { south: "clearing" },
+        items: {
+          fern: {
+            name: "sword ferns",
+            text: "Even more impressive here than in the clearing. Some of these fronds are nearly four feet long. You notice the fiddleheads — the young coiled shoots just unfurling at the base. Edible if prepared right. You file that away.",
+          },
+          log: {
+            name: "cedar log",
+            text: "Western red cedar, long fallen. The wood is soft with rot but the smell is still there — warm, resinous, unmistakable. Along one side, rows of shelf fungi cling to the bark. You kneel and look closer. Useful, maybe. You'll need to learn what's safe here.",
+          },
+          moss: {
+            name: "moss",
+            text: "A thick carpet of it, intensely green, covering everything the ferns don't. You run your fingers through it. Back home you cultivated moss for terrariums and shade gardens. Here it just grows, wild and unchecked, like everything else.",
+          },
+        },
+      },
+
+      stream: {
+        id: "stream",
+        name: "The Stream",
+        description:
+          "You hear the water before you see it — a low, clear sound threading between the trees. A narrow stream runs over smooth grey stones, cold and quick. Red alder trees line both banks, their roots gripping the muddy edge. Clusters of skunk cabbage push up from the wet ground nearby, their leaves impossibly large.",
+        exits: { west: "clearing" },
+        items: {
+          stream: {
+            name: "stream",
+            text: "Clear and cold. You cup some water in your hand. It tastes clean — snowmelt or a spring fed from somewhere higher up. You'll need water. This is a good sign.",
+          },
+          alder: {
+            name: "red alder",
+            text: "Red alder — Alnus rubra. Fast growing, nitrogen-fixing. Wherever alder grows, the soil is healthier for it. You make a note of the location. If you're going to put down roots here, so to speak, you'll want these nearby.",
+          },
+          skunk_cabbage: {
+            name: "skunk cabbage",
+            text: "Lysichiton americanus. The leaves are enormous, glossy, almost tropical-looking. The smell is exactly what you'd expect. Not your first choice for dinner, but the roots have uses — and the plant's heat can melt snow. Weird, tough, and useful. You respect it.",
+          },
+        },
+      },
+
+      ridge: {
+        id: "ridge",
+        name: "The Ridge",
+        description:
+          "The ground rises here, the trees thinning just enough that you can see sky — grey and overcast, but sky. From the ridge you can make out the shape of the forest stretching in every direction, an unbroken green sea. Salal bushes cluster at your feet, their leathery leaves dark and waxy. Somewhere far off, a bird calls once, then goes quiet.",
+        exits: { north: "clearing" },
+        items: {
+          view: {
+            name: "view",
+            text: "Forest. Forest as far as you can see. No roads. No power lines. No smoke from a chimney. You are very, very far from home. You let that land for a moment, then set it aside. You've got work to do.",
+          },
+          salal: {
+            name: "salal",
+            text: "Gaultheria shallon. Hardy, spreading, salt tolerant. The berries are edible — dark purple, mealy, a little sweet. Indigenous people used them for food and medicine for thousands of years. You pick one and chew it. It tastes like the forest smells.",
+          },
+          sky: {
+            name: "sky",
+            text: "Overcast. No sun to navigate by. The light is flat and diffuse, the kind that makes it impossible to tell direction. You'll need another way to orient yourself.",
+          },
+        },
+      },
+    };
+
+    // ─── GAME STATE ───────────────────────────────────────────────────────────
+
+    const state = {
+      currentRoom: "clearing",
+      visited: new Set(),
+      turn: 0,
+    };
+
+    // ─── OUTPUT ───────────────────────────────────────────────────────────────
+
+    const output = document.getElementById("output");
+
+    function print(text, cls = "description") {
+      const div = document.createElement("div");
+      div.className = "line " + cls;
+      div.textContent = text;
+      output.appendChild(div);
+      output.scrollTop = output.scrollHeight;
+    }
+
+    function separator() {
+      print("─".repeat(60), "separator");
+    }
+
+    function printRoom(roomId) {
+      const room = rooms[roomId];
+      const exits = Object.keys(room.exits).join(", ");
+      separator();
+      print(room.name, "location");
+      print(room.description);
+      print("Exits: " + exits, "system");
+    }
+
+    // ─── COMMANDS ─────────────────────────────────────────────────────────────
+
+    function handleInput(raw) {
+      const input = raw.trim().toLowerCase();
+      if (!input) return;
+
+      print("> " + raw.trim(), "player");
+      state.turn++;
+
+      const room = rooms[state.currentRoom];
+
+      // LOOK
+      if (input === "look" || input === "look around" || input === "l") {
+        printRoom(state.currentRoom);
+        return;
+      }
+
+      // GO
+      if (input.startsWith("go ")) {
+        const dir = input.slice(3).trim();
+        if (room.exits[dir]) {
+          state.currentRoom = room.exits[dir];
+          const newRoom = rooms[state.currentRoom];
+          const firstVisit = !state.visited.has(state.currentRoom);
+          state.visited.add(state.currentRoom);
+          printRoom(state.currentRoom);
+          if (firstVisit) {
+            print("[SYSTEM: New location discovered — " + newRoom.name + "]", "system");
+          }
+        } else {
+          print("You can't go that way.", "error");
+        }
+        return;
+      }
+
+      // EXAMINE
+      if (input.startsWith("examine ") || input.startsWith("look at ") || input.startsWith("x ")) {
+        const target = input.replace(/^(examine |look at |x )/, "").trim();
+        // try exact match, then partial
+        const match = Object.keys(room.items).find(
+          (k) => k === target || room.items[k].name.toLowerCase().includes(target)
+        );
+        if (match) {
+          print(room.items[match].text, "examine");
+        } else {
+          print("You don't see anything like that here.", "error");
+        }
+        return;
+      }
+
+      // HELP
+      if (input === "help" || input === "?") {
+        separator();
+        print("COMMANDS", "location");
+        print("  look              — describe your surroundings");
+        print("  go [direction]    — move (north, south, east, west)");
+        print("  examine [thing]   — look closely at something");
+        print("  help              — show this list");
+        return;
+      }
+
+      print("You're not sure how to do that. (Try 'help' for commands.)", "error");
+    }
+
+    // ─── INIT ─────────────────────────────────────────────────────────────────
+
+    function init() {
+      print("You were sitting under a tree in your garden. The afternoon was warm.", "description");
+      print("You closed your eyes for just a moment.", "description");
+      print(" ", "description");
+      print("[SYSTEM: Consciousness transfer complete.]", "system");
+      print("[SYSTEM: Location — Unknown. Biome: Temperate Rainforest. Threat level: Assessing.]", "system");
+      print("[SYSTEM: Occupation detected — Gardener. Passive skill unlocked: Flora Identification (Novice).]", "system");
+      print(" ", "description");
+      print("You open your eyes.", "description");
+      print("The tree above you is not your tree.", "description");
+      print(" ", "description");
+      state.visited.add("clearing");
+      printRoom("clearing");
+    }
+
+    // ─── EVENT LISTENERS ──────────────────────────────────────────────────────
+
+    document.getElementById("btn").addEventListener("click", () => {
+      const el = document.getElementById("input");
+      handleInput(el.value);
+      el.value = "";
+      el.focus();
+    });
+
+    document.getElementById("input").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        handleInput(e.target.value);
+        e.target.value = "";
+      }
+    });
+
+    init();
+  </script>
+</body>
+</html>
